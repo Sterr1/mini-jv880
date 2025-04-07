@@ -22,12 +22,14 @@
 #include <assert.h>
 #include <circle/timer.h>
 #include <string.h>
+#include "midipin.h"
 
 LOGMODULE ("uibuttons");
 
 CUIButton::CUIButton (void)
 :	m_pinNumber (0),
 	m_pin (0),
+	m_midipin (0),
 	m_lastValue (1),
 	m_timer (0),
 	m_debounceTimer (0),
@@ -45,6 +47,10 @@ CUIButton::~CUIButton (void)
 	if (m_pin)
 	{
 		delete m_pin;
+	}
+	if (m_midipin)
+	{
+		delete m_midipin;
 	}
 }
 
@@ -67,10 +73,19 @@ boolean CUIButton::Initialize (unsigned pinNumber, unsigned doubleClickTimeout, 
 	m_timer = m_longPressTimeout;
 	m_debounceTimer = DEBOUNCE_TIME;
 
+	
+
+
 	if (m_pinNumber != 0)
 	{
-		LOGDBG("GPIO Button on pin: %d (%x)", m_pinNumber, m_pinNumber);
-        m_pin = new CGPIOPin (m_pinNumber, GPIOModeInputPullUp);
+		if (isMidiPin(m_pinNumber))
+		{
+			LOGDBG("MIDI Button on msg: %d (%x)", MidiPinToCC(m_pinNumber), MidiPinToCC(m_pinNumber));
+			m_midipin = new CMIDIPin (m_pinNumber);
+		} else {
+			LOGDBG("GPIO Button on pin: %d (%x)", m_pinNumber, m_pinNumber);
+			m_pin = new CGPIOPin (m_pinNumber, GPIOModeInputPullUp);
+		}
 	}
 	return TRUE;
 }
@@ -99,12 +114,24 @@ CUIButton::BtnTrigger CUIButton::ReadTrigger (void)
 {
 	unsigned value;
 	
-	if (!m_pin)
+	if (isMidiPin(m_pinNumber))
+	{
+		if (!m_midipin)
+		{
+			// Always return "not pressed" if not configured
+			return BtnTriggerNone;
+		}
+		value = m_midipin->Read();
+	}
+	else
+	{
+		if (!m_pin)
 		{
 			// Always return "not pressed" if not configured
 			return BtnTriggerNone;
 		}
 		value = m_pin->Read();
+	}
 
 	if (m_timer < m_longPressTimeout) {
 		m_timer++;
@@ -187,6 +214,16 @@ CUIButton::BtnTrigger CUIButton::ReadTrigger (void)
 	return BtnTriggerNone;
 }
 
+void CUIButton::Write (unsigned nValue) {
+	// This only makes sense for MIDI buttons.
+	if (m_midipin && isMidiPin(m_pinNumber))
+	{
+		// Update the "MIDI Pin"
+		m_midipin->Write(nValue);
+	}
+}
+
+
 CUIButton::BtnEvent CUIButton::Read (void) {
 	BtnTrigger trigger = ReadTrigger();
 
@@ -227,6 +264,7 @@ CUIButton::BtnTrigger CUIButton::triggerTypeFromString(const char* triggerString
 
 
 CUIButtons::CUIButtons (
+			CConfig *pConfig,
 			unsigned previewPin, const char *previewAction,
 			unsigned leftPin, const char *leftAction,
 			unsigned rightPin, const char *rightAction,
@@ -243,7 +281,7 @@ CUIButtons::CUIButtons (
 			unsigned enterPin, const char *enterAction,
 			unsigned doubleClickTimeout, unsigned longPressTimeout
 )
-:	m_doubleClickTimeout(doubleClickTimeout),
+:	m_pConfig(pConfig), m_doubleClickTimeout(doubleClickTimeout),
 	m_longPressTimeout(longPressTimeout),
 	m_previewPin(previewPin), m_previewAction(CUIButton::triggerTypeFromString(previewAction)),
 	m_leftPin(leftPin), m_leftAction(CUIButton::triggerTypeFromString(leftAction)),
@@ -270,12 +308,27 @@ CUIButtons::~CUIButtons (void)
 
 boolean CUIButtons::Initialize (void)
 {
+	assert (m_pConfig);
+	m_notesMidi = ccToMidiPin( m_pConfig->GetMIDIButtonNotes ());
+	m_prevMidi = ccToMidiPin( m_pConfig->GetMIDIButtonPrev ());
+	m_nextMidi = ccToMidiPin( m_pConfig->GetMIDIButtonNext ());
+	m_backMidi = ccToMidiPin( m_pConfig->GetMIDIButtonBack ());
+	m_selectMidi = ccToMidiPin( m_pConfig->GetMIDIButtonSelect ());
+	m_homeMidi = ccToMidiPin( m_pConfig->GetMIDIButtonHome ());
+	m_pgmUpMidi = ccToMidiPin( m_pConfig->GetMIDIButtonPgmUp ());
+	m_pgmDownMidi = ccToMidiPin( m_pConfig->GetMIDIButtonPgmDown ());
+	m_BankUpMidi = ccToMidiPin( m_pConfig->GetMIDIButtonBankUp ());
+	m_BankDownMidi = ccToMidiPin( m_pConfig->GetMIDIButtonBankDown ());
+	m_TGUpMidi = ccToMidiPin( m_pConfig->GetMIDIButtonTGUp ());
+	m_TGDownMidi = ccToMidiPin( m_pConfig->GetMIDIButtonTGDown ());
+
+
 	// First sanity check and convert the timeouts:
 	// Internally values are in tenths of a millisecond, but config values
 	// are in milliseconds
 	unsigned doubleClickTimeout = m_doubleClickTimeout * 10;
 	unsigned longPressTimeout = m_longPressTimeout * 10;
-
+	
 	if (longPressTimeout < doubleClickTimeout) {
 		// This is invalid - long press must be longest timeout
 		LOGERR("LongPressTimeout (%u) should not be shorter than DoubleClickTimeout (%u)",
@@ -336,6 +389,25 @@ boolean CUIButtons::Initialize (void)
 			}
 			else if (m_buttons[j].getPinNumber() == 0) {
 				// This is un-initialised so can be assigned
+				m_buttons[j].Initialize(pins[i], doubleClickTimeout, longPressTimeout);
+				break;
+			}
+		}
+	}
+
+	// Now setup the MIDI buttons.
+	// Note: the configuration is simpler as the only trigger supported is a single, short press
+	for (unsigned i=MAX_GPIO_BUTTONS; i<MAX_BUTTONS; i++) {
+		// if this pin is 0 it means it's disabled - so continue
+		if (pins[i] == 0) {
+			continue;
+		}
+
+		// Carry on in the list from where GPIO buttons left off
+		for (unsigned j=0; j<MAX_BUTTONS; j++) {
+			if (m_buttons[j].getPinNumber() == 0) {
+				// This is un-initialised so can be assigned
+				// doubleClickTimeout and longPressTimeout are ignored for MIDI buttons at present
 				m_buttons[j].Initialize(pins[i], doubleClickTimeout, longPressTimeout);
 				break;
 			}

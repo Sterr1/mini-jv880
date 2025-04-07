@@ -23,6 +23,8 @@
 #include <circle/gpiopin.h>
 #include <circle/types.h>
 #include "config.h"
+#include "midipin.h"
+
 
 #define BUTTONS_UPDATE_NUM_TICKS 100
 #define DEBOUNCE_TIME 20
@@ -76,10 +78,12 @@ public:
 	
 	BtnTrigger ReadTrigger (void);
 	BtnEvent Read (void);
+	void Write (unsigned nValue); // MIDI buttons only!
 
 	static BtnTrigger triggerTypeFromString(const char* triggerString);
 	
 private:
+	CMIDIPin *m_midipin;
 	// Pin number
 	unsigned m_pinNumber;
 	// GPIO pin
@@ -109,9 +113,11 @@ class CUIButtons
 {
 public:
 	typedef void BtnEventHandler (CUIButton::BtnEvent Event, void *param);
+	
 
 public:
 	CUIButtons (
+			CConfig *pConfig,
 			unsigned previewPin, const char *previewAction,
 			unsigned leftPin, const char *leftAction,
 			unsigned rightPin, const char *rightAction,
@@ -139,8 +145,11 @@ public:
 	void ResetButton (unsigned pinNumber);
 	
 private:
+
+	CConfig *m_pConfig;
 	// Array of normal GPIO buttons and "MIDI buttons"
 	CUIButton m_buttons[MAX_BUTTONS];
+	
 	
 	// Timeout for double click in tenths of a millisecond
 	unsigned m_doubleClickTimeout;
@@ -176,6 +185,20 @@ private:
 	CUIButton::BtnTrigger m_compareAction;
 	unsigned m_enterPin;
 	CUIButton::BtnTrigger m_enterAction;
+
+	unsigned m_notesMidi;
+	unsigned m_prevMidi;
+	unsigned m_nextMidi;
+	unsigned m_backMidi;
+	unsigned m_selectMidi;
+	unsigned m_homeMidi;
+	
+	unsigned m_pgmUpMidi;
+	unsigned m_pgmDownMidi;
+	unsigned m_BankUpMidi;
+	unsigned m_BankDownMidi;
+	unsigned m_TGUpMidi;
+	unsigned m_TGDownMidi;
 
 	BtnEventHandler *m_eventHandler;
 	void *m_eventParam;

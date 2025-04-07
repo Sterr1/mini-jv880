@@ -20,11 +20,14 @@
 #ifndef _minijv880_h
 #define _minijv880_h
 
+#ifndef ARM_ALLOW_MULTI_CORE
 #define ARM_ALLOW_MULTI_CORE
+#endif
 
 #include "config.h"
 #include "userinterface.h"
 #include "emulator/mcu.h"
+#include "serialmididevice.h"
 #include <circle/gpiomanager.h>
 #include <circle/i2cmaster.h>
 #include <circle/interrupt.h>
@@ -45,6 +48,7 @@ public:
              CGPIOManager *pGPIOManager, CI2CMaster *pI2CMaster, CSPIMaster *pSPIMaster,
              FATFS *pFileSystem, CScreenDevice *mScreenUnbuffered);
 
+  CScreenDevice *screenUnbuffered;
   bool Initialize(void);
   void Process(bool bPlugAndPlayUpdated);
 
@@ -56,7 +60,7 @@ public:
 
   MCU mcu;
 
-  CScreenDevice *screenUnbuffered;
+  
 
 private:
   CConfig *m_pConfig;
@@ -65,12 +69,14 @@ private:
   CUSBMIDIDevice *volatile m_pMIDIDevice = 0;
   // CUSBKompleteKontrolDevice *volatile m_KompleteKontrol = 0;
   int lastEncoderPos = 0;
-
-  CSoundBaseDevice *m_pSoundDevice;
+  
   bool m_bChannelsSwapped;
+  CSoundBaseDevice *m_pSoundDevice;
   unsigned m_nQueueSizeFrames;
 
   CUserInterface m_UI;
+  CSerialMIDIDevice m_SerialMIDI;
+  bool m_bUseSerial;
 
   unsigned m_lastTick;
   unsigned m_lastTick1;

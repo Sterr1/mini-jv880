@@ -222,8 +222,8 @@ void MCU_LINK(MCU *mcu, uint8_t operand)
     }
     else if (operand == 0x1f)
     {
-        uint32_t dataH = mcu->MCU_ReadCodeAdvance();
-        uint32_t dataL = mcu->MCU_ReadCodeAdvance();
+        //uint32_t dataH = mcu->MCU_ReadCodeAdvance(); //unused
+        //uint32_t dataL = mcu->MCU_ReadCodeAdvance(); //unused
         mcu->MCU_ErrorTrap(); // TODO
     }
     else
@@ -240,8 +240,8 @@ void MCU_UNLK(MCU *mcu, uint8_t operand)
 
 void MCU_Jump_PJSR(MCU *mcu, uint8_t operand)
 {
-    uint32_t ocp = mcu->mcu.cp;
-    uint32_t opc = mcu->mcu.pc;
+    //uint32_t ocp = mcu->mcu.cp; //unused
+    //uint32_t opc = mcu->mcu.pc; //unused
     uint8_t page = mcu->MCU_ReadCodeAdvance();
     uint16_t address;
     address = mcu->MCU_ReadCodeAdvance() << 8;
@@ -595,7 +595,7 @@ void MCU_Operand_General(MCU *mcu, uint8_t operand)
     uint32_t type = GENERAL_DIRECT;
     uint32_t disp = 0;
     uint32_t increase = INCREASE_NONE;
-    uint32_t absolute = 0;
+    //uint32_t absolute = 0;  //unused
     uint32_t reg = 0;
     uint32_t siz = OPERAND_BYTE;
     uint32_t data = 0;

@@ -461,3 +461,67 @@ bool CConfig::GetProfileEnabled (void) const
 {
 	return m_bProfileEnabled;
 }
+unsigned CConfig::GetMIDIButtonCh (void) const
+{
+	return m_nMIDIButtonCh;
+}
+
+unsigned CConfig::GetMIDIButtonNotes (void) const
+{
+	return m_nMIDIButtonNotes;
+}
+
+unsigned CConfig::GetMIDIButtonPrev (void) const
+{
+	return m_nMIDIButtonPrev;
+}
+
+unsigned CConfig::GetMIDIButtonNext (void) const
+{
+	return m_nMIDIButtonNext;
+}
+
+unsigned CConfig::GetMIDIButtonBack (void) const
+{
+	return m_nMIDIButtonBack;
+}
+
+unsigned CConfig::GetMIDIButtonSelect (void) const
+{
+	return m_nMIDIButtonSelect;
+}
+
+unsigned CConfig::GetMIDIButtonHome (void) const
+{
+	return m_nMIDIButtonHome;
+}
+
+unsigned CConfig::GetMIDIButtonPgmUp (void) const
+{
+	return m_nMIDIButtonPgmUp;
+}
+
+unsigned CConfig::GetMIDIButtonPgmDown (void) const
+{
+	return m_nMIDIButtonPgmDown;
+}
+
+unsigned CConfig::GetMIDIButtonBankUp (void) const
+{
+	return m_nMIDIButtonBankUp;
+}
+
+unsigned CConfig::GetMIDIButtonBankDown (void) const
+{
+	return m_nMIDIButtonBankDown;
+}
+
+unsigned CConfig::GetMIDIButtonTGUp (void) const
+{
+	return m_nMIDIButtonTGUp;
+}
+
+unsigned CConfig::GetMIDIButtonTGDown (void) const
+{
+	return m_nMIDIButtonTGDown;
+}

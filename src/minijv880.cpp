@@ -38,10 +38,11 @@ CMiniJV880::CMiniJV880(CConfig *pConfig, CInterruptSystem *pInterrupt,
                        CGPIOManager *pGPIOManager, CI2CMaster *pI2CMaster, CSPIMaster *pSPIMaster,
                        FATFS *pFileSystem, CScreenDevice *mScreenUnbuffered)
     : CMultiCoreSupport(CMemorySystem::Get()), m_pConfig(pConfig),
-      m_pFileSystem(pFileSystem), m_pSoundDevice(0),
+      m_pFileSystem(pFileSystem), m_pSoundDevice(0), 
       m_bChannelsSwapped(pConfig->GetChannelsSwapped()),
       screenUnbuffered(mScreenUnbuffered),
-      m_UI(this, pGPIOManager, pI2CMaster, pSPIMaster, pConfig),
+      m_UI(this, pGPIOManager, pI2CMaster, pSPIMaster, pConfig), 
+      m_SerialMIDI (this, pInterrupt, pConfig, &m_UI),
       m_lastTick(0),
       m_lastTick1(0) {
   assert(m_pConfig);
@@ -85,6 +86,13 @@ bool CMiniJV880::Initialize(void) {
 	{
     LOGERR("Failed to initialize UI");
 		return false;
+	}
+
+  if (m_SerialMIDI.Initialize ())
+	{
+		LOGNOTE ("Serial MIDI interface enabled");
+
+		m_bUseSerial = true;
 	}
 
   LOGNOTE("Loading emu files");
@@ -167,8 +175,14 @@ void CMiniJV880::Process(bool bPlugAndPlayUpdated) {
 
   m_UI.Process ();
 
-  if (!bPlugAndPlayUpdated)
+    if (!bPlugAndPlayUpdated) 
+  {
     return;
+  } 
+    if (m_bUseSerial)
+	{
+		m_SerialMIDI.Process ();
+	}
 
   if (m_pMIDIDevice == 0) {
     m_pMIDIDevice =

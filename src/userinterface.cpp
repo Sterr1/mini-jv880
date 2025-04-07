@@ -174,6 +174,7 @@ bool CUserInterface::Initialize (void)
 	}
 
 	m_pUIButtons = new CUIButtons (
+				m_pConfig,
                   m_pConfig->GetButtonPinPreview (), m_pConfig->GetButtonActionPreview (),
 									m_pConfig->GetButtonPinLeft (), m_pConfig->GetButtonActionRight (),
 									m_pConfig->GetButtonPinRight (), m_pConfig->GetButtonActionRight (),
