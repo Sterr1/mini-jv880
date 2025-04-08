@@ -525,3 +525,35 @@ unsigned CConfig::GetMIDIButtonTGDown (void) const
 {
 	return m_nMIDIButtonTGDown;
 }
+unsigned CConfig::GetMIDISystemCCVol (void) const
+{
+	return m_nMIDISystemCCVol;
+}
+
+unsigned CConfig::GetMIDISystemCCPan (void) const
+{
+	return m_nMIDISystemCCPan;
+}
+
+unsigned CConfig::GetMIDISystemCCDetune (void) const
+{
+	return m_nMIDISystemCCDetune;
+}
+
+unsigned CConfig::GetMIDIGlobalExpression (void) const
+{
+	return m_nMIDIGlobalExpression;
+}
+bool CConfig::GetMIDIDumpEnabled (void) const
+{
+	return m_bMIDIDumpEnabled;
+}
+const char *CConfig::GetMIDIThruIn (void) const
+{
+	return m_MIDIThruIn.c_str ();
+}
+
+const char *CConfig::GetMIDIThruOut (void) const
+{
+	return m_MIDIThruOut.c_str ();
+}

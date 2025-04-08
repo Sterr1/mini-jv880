@@ -26,6 +26,7 @@
 #include "minijv880.h"
 #include "config.h"
 #include <stdio.h>
+#include <stdint.h> 
 #include <assert.h>
 #include "userinterface.h"
 
@@ -170,7 +171,7 @@ void CMIDIDevice::MIDIMessageHandler (const u8 *pMessage, size_t nLength, unsign
 			break;
 				
 		default:
-			switch(pMessage[0])
+			/*switch(pMessage[0])
 			{
 				case MIDI_SYSTEM_EXCLUSIVE_BEGIN:
 					fprintf(stderr, "MIDI%u: SysEx data length: [%d]:",nCable, uint16_t(nLength));
@@ -184,7 +185,7 @@ void CMIDIDevice::MIDIMessageHandler (const u8 *pMessage, size_t nLength, unsign
 					break;
 				default:
 					fprintf(stderr, "MIDI%u: Unhandled MIDI event type %0x02x\n",nCable,pMessage[0]);
-			}
+			}*/
 			break;
 		}
 	}
@@ -246,7 +247,7 @@ void CMIDIDevice::MIDIMessageHandler (const u8 *pMessage, size_t nLength, unsign
 	// Need to scale the volume parameter to fit
 	// a 14-bit value: 0..16383
 	// and then split into LSB/MSB.	
-	if (nLength == 8 &&
+	/*if (nLength == 8 &&
 	    pMessage[0] == MIDI_SYSTEM_EXCLUSIVE_BEGIN &&
 	    pMessage[1] == 0x7F &&
 	    pMessage[2] == 0x7F &&
@@ -517,7 +518,7 @@ void CMIDIDevice::MIDIMessageHandler (const u8 *pMessage, size_t nLength, unsign
 			}
 		}
 	}
-	m_MIDISpinLock.Release ();
+	m_MIDISpinLock.Release ();*/
 }
 
 void CMIDIDevice::AddDevice (const char *pDeviceName)
@@ -531,7 +532,7 @@ void CMIDIDevice::AddDevice (const char *pDeviceName)
 	s_DeviceMap.insert (std::pair<std::string, CMIDIDevice *> (pDeviceName, this));
 }
 
-bool CMIDIDevice::HandleMIDISystemCC(const u8 ucCC, const u8 ucCCval)
+/*bool CMIDIDevice::HandleMIDISystemCC(const u8 ucCC, const u8 ucCCval)
 {
 	// This only makes sense when there are at least 8 TGs.
 	// Note: If more than 8 TGs then only 8 TGs are controllable this way.
@@ -575,9 +576,9 @@ bool CMIDIDevice::HandleMIDISystemCC(const u8 ucCC, const u8 ucCCval)
 	}
 	
 	return false;
-}
+}*/
 
-void CMIDIDevice::HandleSystemExclusive(const uint8_t* pMessage, const size_t nLength, const unsigned nCable, const uint8_t nTG)
+/*void CMIDIDevice::HandleSystemExclusive(const uint8_t* pMessage, const size_t nLength, const unsigned nCable, const uint8_t nTG)
 {
   int16_t sysex_return;
 
@@ -703,9 +704,9 @@ void CMIDIDevice::HandleSystemExclusive(const uint8_t* pMessage, const size_t nL
       }
       break;
   }
-}
+}*/
 
-void CMIDIDevice::SendSystemExclusiveVoice(uint8_t nVoice, const unsigned nCable, uint8_t nTG)
+/*void CMIDIDevice::SendSystemExclusiveVoice(uint8_t nVoice, const unsigned nCable, uint8_t nTG)
 {
   uint8_t voicedump[163];
 
@@ -719,5 +720,5 @@ void CMIDIDevice::SendSystemExclusiveVoice(uint8_t nVoice, const unsigned nCable
   {
     Iterator->second->Send (voicedump, sizeof(voicedump)*sizeof(uint8_t));
     // LOGDBG("Send SYSEX voice dump %u to \"%s\"",nVoice,Iterator->first.c_str());
-  }
-} 
+  }*/
+ 

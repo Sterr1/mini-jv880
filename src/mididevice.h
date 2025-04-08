@@ -55,7 +55,13 @@ public:
 	u8 GetChannel (unsigned nTG) const;
 
 	virtual void Send (const u8 *pMessage, size_t nLength, unsigned nCable = 0) {}
-	virtual void SendSystemExclusiveVoice(uint8_t nVoice, const unsigned nCable, uint8_t nTG);
+	//*virtual void SendSystemExclusiveVoice(uint8_t nVoice, const unsigned nCable, uint8_t nTG);
+
+	unsigned m_nMIDISystemCCVol;
+	unsigned m_nMIDISystemCCPan;
+	unsigned m_nMIDISystemCCDetune;
+	u32	 m_MIDISystemCCBitmap[4]; // to allow for 128 bit entries
+	unsigned m_nMIDIGlobalExpression;
 
 protected:
 	void MIDIMessageHandler (const u8 *pMessage, size_t nLength, unsigned nCable = 0);
@@ -70,13 +76,9 @@ private:
 	CConfig *m_pConfig;
 	CUserInterface *m_pUI;
 
-	//u8 m_ChannelMap[CConfig::AllToneGenerators];
+	u8 m_ChannelMap[CConfig::AllToneGenerators];
 	
-	unsigned m_nMIDISystemCCVol;
-	unsigned m_nMIDISystemCCPan;
-	unsigned m_nMIDISystemCCDetune;
-	u32	 m_MIDISystemCCBitmap[4]; // to allow for 128 bit entries
-	unsigned m_nMIDIGlobalExpression;
+
 
 	std::string m_DeviceName;
 

@@ -43,6 +43,8 @@ public:
 #else
 	static const unsigned MaxUSBMIDIDevices = 4;
 #endif
+    
+	static const unsigned AllToneGenerators = 1;
 
 // TODO - Leave this for uimenu.cpp for now, but it will need to be dynamic at some point...
 	static const unsigned LCDColumns = 16;		// HD44780 LCD
@@ -60,8 +62,6 @@ public:
 	unsigned GetDACI2CAddress (void) const;		// 0 for auto probing
 	bool GetChannelsSwapped (void) const;
 
-	// MIDI
-	unsigned GetMIDIBaudRate (void) const;
 
 	// HD44780 LCD
 	// GPIO pin numbers are chip numbers, not header positions
@@ -160,8 +160,21 @@ public:
 	bool GetEncoderEnabled (void) const;
 	unsigned GetEncoderPinClock (void) const;
 	unsigned GetEncoderPinData (void) const;
-
+	bool GetMIDIDumpEnabled (void) const;
 	bool GetProfileEnabled (void) const;
+			// MIDI
+			unsigned GetMIDIBaudRate (void) const;
+			const char *GetMIDIThruIn (void) const;	// "" if not specified
+			const char *GetMIDIThruOut (void) const;	// "" if not specified
+			bool GetMIDIRXProgramChange (void) const;	// true if not specified
+			bool GetIgnoreAllNotesOff (void) const;
+			bool GetMIDIAutoVoiceDumpOnPC (void) const; // false if not specified
+			bool GetHeaderlessSysExVoices (void) const; // false if not specified
+			bool GetExpandPCAcrossBanks (void) const; // true if not specified
+			unsigned GetMIDISystemCCVol (void) const;
+			unsigned GetMIDISystemCCPan (void) const;
+			unsigned GetMIDISystemCCDetune (void) const;
+			unsigned GetMIDIGlobalExpression (void) const;
 
 private:
 	CPropertiesFatFsFile m_Properties;
@@ -173,7 +186,12 @@ private:
 	unsigned m_EngineType;
 
 	unsigned m_nMIDIBaudRate;
-
+	std::string m_MIDIThruIn;
+	std::string m_MIDIThruOut;
+	unsigned m_nMIDISystemCCVol;
+	unsigned m_nMIDISystemCCPan;
+	unsigned m_nMIDISystemCCDetune;
+	unsigned m_nMIDIGlobalExpression;
 
 	bool m_bLCDEnabled;
 	unsigned m_nLCDPinEnable;
@@ -260,6 +278,7 @@ private:
 	unsigned m_nEncoderPinData;
 
 	bool m_bProfileEnabled;
+	bool m_bMIDIDumpEnabled;
 };
 
 #endif
