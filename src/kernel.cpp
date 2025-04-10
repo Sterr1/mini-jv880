@@ -97,11 +97,14 @@ bool CKernel::Initialize (void)
 	m_pUSB = new CUSBHCIDevice (&mInterrupt, &mTimer, TRUE);
 	if (!m_pUSB->Initialize ())
 	{
-		return FALSE;
+			return FALSE;
 	}
-
+	else  {
+		LOGNOTE("USB initialised");
+	}
 	m_pJV880 = new CMiniJV880 (&m_Config, &mInterrupt, &m_GPIOManager, &m_I2CMaster, m_pSPIMaster, &mFileSystem, &mScreenUnbuffered);
 	assert (m_pJV880);
+	LOGNOTE("New CminiJV880");
 
 	if (!m_pJV880->Initialize ())
 	{

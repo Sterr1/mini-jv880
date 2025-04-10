@@ -369,6 +369,22 @@ boolean CUIButtons::Initialize (void)
 		CUIButton::BtnEventMonitor,
 		CUIButton::BtnEventCompare,
 		CUIButton::BtnEventEnter,
+
+		// MIDI buttons
+		CUIButton::BtnEventPreview,
+		CUIButton::BtnEventLeft,
+		CUIButton::BtnEventRight,
+		CUIButton::BtnEventData,
+		CUIButton::BtnEventToneSelect,
+		CUIButton::BtnEventPatchPerform,
+		CUIButton::BtnEventEdit,
+		CUIButton::BtnEventSystem,
+		CUIButton::BtnEventRhythm,
+		CUIButton::BtnEventUtility,
+		CUIButton::BtnEventMute,
+		CUIButton::BtnEventMonitor,
+		CUIButton::BtnEventCompare,
+		CUIButton::BtnEventEnter,
 	};
 
 	// Setup normal GPIO buttons first

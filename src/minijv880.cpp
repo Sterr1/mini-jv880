@@ -42,12 +42,10 @@ CMiniJV880::CMiniJV880(CConfig *pConfig, CInterruptSystem *pInterrupt,
       m_bChannelsSwapped(pConfig->GetChannelsSwapped()),
       screenUnbuffered(mScreenUnbuffered),
       m_UI(this, pGPIOManager, pI2CMaster, pSPIMaster, pConfig), 
-      m_SerialMIDI (this, pInterrupt, pConfig, &m_UI),
+      m_SerialMIDI (this, pInterrupt, pConfig, &m_UI), 
       m_lastTick(0),
       m_lastTick1(0) {
   assert(m_pConfig);
-
-  s_pThis = this;
 
   // select the sound device
   const char *pDeviceName = pConfig->GetSoundDevice();

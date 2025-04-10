@@ -41,6 +41,7 @@ CSerialMIDIDevice::CSerialMIDIDevice (CMiniJV880 *pSynthesizer, CInterruptSystem
 	m_nSysEx (0),
 	m_SendBuffer (&m_Serial)
 {
+	LOGNOTE("MIDI Constructor");
 	AddDevice ("ttyS1");
 }
 

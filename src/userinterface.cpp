@@ -50,6 +50,10 @@ CUserInterface::CUserInterface (CMiniJV880 *pMiniJV880, CGPIOManager *pGPIOManag
 	m_bSwitchPressed (false),
 	m_lastTick (0)
 {
+	LOGNOTE("UI Constructor");
+	if (!pGPIOManager || !pI2CMaster || !pSPIMaster || !pConfig) {
+        LOGNOTE("Invalid dependencies!");
+	}
 	screen_buffer = (u8 *)malloc(512);
 }
 
