@@ -37,16 +37,18 @@ LOGMODULE("minijv880");
 CMiniJV880::CMiniJV880(CConfig *pConfig, CInterruptSystem *pInterrupt,
                        CGPIOManager *pGPIOManager, CI2CMaster *pI2CMaster, CSPIMaster *pSPIMaster,
                        FATFS *pFileSystem, CScreenDevice *mScreenUnbuffered)
-    : CMultiCoreSupport(CMemorySystem::Get()), m_pConfig(pConfig),
-      m_pFileSystem(pFileSystem), m_pSoundDevice(0), 
+    : CMultiCoreSupport(CMemorySystem::Get()), 
+      m_pConfig(pConfig),
+      m_UI(this, pGPIOManager, pI2CMaster, pSPIMaster, pConfig),
+      m_pFileSystem(pFileSystem), 
+      m_pSoundDevice(0), 
       m_bChannelsSwapped(pConfig->GetChannelsSwapped()),
       screenUnbuffered(mScreenUnbuffered),
-      m_UI(this, pGPIOManager, pI2CMaster, pSPIMaster, pConfig), 
       m_SerialMIDI (this, pInterrupt, pConfig, &m_UI), 
       m_lastTick(0),
       m_lastTick1(0) {
   assert(m_pConfig);
-
+  LOGNOTE("MiniJV880 Constructor");
   // select the sound device
   const char *pDeviceName = pConfig->GetSoundDevice();
   if (strcmp(pDeviceName, "i2s") == 0) {
