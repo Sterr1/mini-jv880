@@ -357,7 +357,11 @@ void MCU::MCU_Write(uint32_t address, const uint8_t value) {
       MCU_DeviceWrite(address & 0x7f, value);
     else
         LOGWARN("Unknown write %x%04x\n", page, address);
-  } else if (page == 10)
+  } else if (page == 0 && address >= 0x6196 && address <= 0x6199) 
+    {
+      return;
+    }
+    else if (page == 10)
     sram[address & 0x7fff] = value;
   else if (page == 12)
     nvram[address & 0x7fff] = value;

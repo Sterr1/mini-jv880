@@ -106,8 +106,8 @@ bool CUserInterface::Initialize (void)
 			if (m_pST7789Display->Initialize())
 			{
 				m_pST7789Display->SetRotation (m_pConfig->GetST7789Rotation());
-				bool bLargeFont = !(m_pConfig->GetST7789SmallFont());
-				m_pST7789 = new CST7789Device (m_pSPIMaster, m_pST7789Display, m_pConfig->GetLCDColumns (), m_pConfig->GetLCDRows (), bLargeFont, bLargeFont);
+				//bool bLargeFont = !(m_pConfig->GetST7789SmallFont());
+				m_pST7789 = new CST7789Device (m_pSPIMaster, m_pST7789Display, m_pConfig->GetLCDColumns (), m_pConfig->GetLCDRows (), Font8x16, false, false);
 				if (m_pST7789->Initialize())
 				{
 					LOGDBG ("LCD: ST7789");
@@ -266,6 +266,52 @@ void CUserInterface::Process (void)
 	CString Msg ("\x1B[H\E[?25l");
 	for (int i = 0; i < 2; i++)
 	{
+		// Берём исходную строку длиной 24 символа
+		std::string line;
+		line.reserve(ACTUAL_COLS);
+		for (int j = 0; j < ACTUAL_COLS; j++) {
+			uint8_t ch = m_pMiniJV880->mcu.lcd.LCD_Data[i * 40 + j];
+			line.push_back(ch);
+		}
+
+		// Ужимаем, пока длина > 20
+		while ((int)line.size() > displayCols) {
+			// 1. Убираем двойные пробелы
+			size_t pos = line.find("  ");
+			if (pos != std::string::npos) {
+				line.erase(pos, 1); // убираем один пробел
+				continue;
+			}
+			// 2. Убираем одиночные пробелы
+			pos = line.find(' ');
+			if (pos != std::string::npos) {
+				line.erase(pos, 1);
+				continue;
+			}
+			// 3. Если пробелов больше нет — жёстко обрезаем
+			line.resize(displayCols);
+		}
+
+		// Теперь рисуем
+		for (int j = 0; j < displayCols; j++)
+		{
+			char ch = (j < (int)line.size()) ? line[j] : ' ';
+			int jj = m_pMiniJV880->mcu.lcd.LCD_DD_RAM % 0x40;
+			int ii = m_pMiniJV880->mcu.lcd.LCD_DD_RAM / 0x40;
+
+			if (i == ii && j == jj && ii < 2 && jj < ACTUAL_COLS && m_pMiniJV880->mcu.lcd.LCD_C) {
+				// курсор
+				Msg.Append("_");
+			} else {
+				Msg.Append(std::string(1, ch).c_str());
+			}
+		}
+	}
+
+	LCDWrite(Msg);
+
+	/*for (int i = 0; i < 2; i++)
+	{
 		unsigned long currentTime = CTimer::GetClockTicks();
 
 		// Handle scrolling and pausing logic
@@ -318,7 +364,7 @@ void CUserInterface::Process (void)
 			}
 		}
 	}
-	LCDWrite(Msg);
+	LCDWrite(Msg);*/
 }
 
 void CUserInterface::LCDWrite (const char *pString)
@@ -331,7 +377,7 @@ void CUserInterface::LCDWrite (const char *pString)
 
 void CUserInterface::EncoderEventHandler (CKY040::TEvent Event)
 {
-	uint32_t btn = 0;
+	//uint32_t btn = 0;
 	switch (Event)
 	{
 	case CKY040::EventSwitchDown:

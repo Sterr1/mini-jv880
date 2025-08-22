@@ -20,11 +20,14 @@
 #ifndef _minijv880_h
 #define _minijv880_h
 
+#ifndef ARM_ALLOW_MULTI_CORE
 #define ARM_ALLOW_MULTI_CORE
+#endif
 
 #include "config.h"
 #include "userinterface.h"
 #include "emulator/mcu.h"
+#include "sync.h"
 #include <circle/gpiomanager.h>
 #include <circle/i2cmaster.h>
 #include <circle/interrupt.h>
@@ -38,6 +41,9 @@
 #include <circle/usb/usbmidi.h>
 #include <fatfs/ff.h>
 #include <stdint.h>
+#include <atomic>
+
+
 
 class CMiniJV880 : public CMultiCoreSupport {
 public:
@@ -56,7 +62,7 @@ public:
 
   MCU mcu;
 
-  CScreenDevice *screenUnbuffered;
+
 
 private:
   CConfig *m_pConfig;
@@ -67,6 +73,7 @@ private:
   int lastEncoderPos = 0;
 
   CSoundBaseDevice *m_pSoundDevice;
+  CScreenDevice *screenUnbuffered;
   bool m_bChannelsSwapped;
   unsigned m_nQueueSizeFrames;
 
@@ -76,6 +83,9 @@ private:
   unsigned m_lastTick1;
 
   static CMiniJV880 *s_pThis;
+
+    static Barrier             s_Barrier;       // барьер на 2 участника
+    static std::atomic<uint64_t> s_CycleTarget; // цель по MCU-циклам для PCM
 };
 
 #endif

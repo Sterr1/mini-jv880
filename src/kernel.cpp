@@ -34,8 +34,8 @@ CKernel::CKernel (void)
 	m_GPIOManager (&mInterrupt),
  	m_I2CMaster (CMachineInfo::Get ()->GetDevice (DeviceI2CMaster), TRUE),
 	m_pSPIMaster (nullptr),
-	m_pJV880 (0),
-	m_CPUThrottle (CPUSpeedMaximum)
+	m_CPUThrottle (CPUSpeedMaximum),
+	m_pJV880 (0)
 {
 	s_pThis = this;
 

@@ -52,10 +52,11 @@ private:
 private:
 	// do not change this order
 	CConfig		m_Config;
-	CCPUThrottle	m_CPUThrottle;
+	
 	CGPIOManager	m_GPIOManager;
 	CI2CMaster	m_I2CMaster;
 	CSPIMaster	*m_pSPIMaster;
+	CCPUThrottle	m_CPUThrottle;
 	CMiniJV880	*m_pJV880;
 	CUSBController *m_pUSB;
 

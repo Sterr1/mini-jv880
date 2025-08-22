@@ -29,6 +29,18 @@
 #include <circle/usb/usbmidihost.h>
 #include <stdio.h>
 #include <string.h>
+#include <cstring>   // memcpy / memmove
+#include <algorithm>
+
+
+// определения статиков (в minijv880.cpp)
+Barrier CMiniJV880::s_Barrier(2);
+std::atomic<uint64_t> CMiniJV880::s_CycleTarget { 0 };
+
+// конфиг: сколько циклов MCU считаем за один квант (подбирай)
+static constexpr uint64_t CYCLES_PER_INSTR = 12ull;   // твоё допущение
+static constexpr unsigned   INSTRS_PER_QUANTUM = 256u;
+static constexpr uint64_t   CYCLES_PER_QUANTUM = CYCLES_PER_INSTR * INSTRS_PER_QUANTUM;
 
 CMiniJV880 *CMiniJV880::s_pThis = 0;
 
@@ -38,9 +50,10 @@ CMiniJV880::CMiniJV880(CConfig *pConfig, CInterruptSystem *pInterrupt,
                        CGPIOManager *pGPIOManager, CI2CMaster *pI2CMaster, CSPIMaster *pSPIMaster,
                        FATFS *pFileSystem, CScreenDevice *mScreenUnbuffered)
     : CMultiCoreSupport(CMemorySystem::Get()), m_pConfig(pConfig),
-      m_pFileSystem(pFileSystem), m_pSoundDevice(0),
-      m_bChannelsSwapped(pConfig->GetChannelsSwapped()),
+      m_pFileSystem(pFileSystem), 
+      m_pSoundDevice(0),
       screenUnbuffered(mScreenUnbuffered),
+      m_bChannelsSwapped(pConfig->GetChannelsSwapped()),
       m_UI(this, pGPIOManager, pI2CMaster, pSPIMaster, pConfig),
       m_lastTick(0),
       m_lastTick1(0) {
@@ -201,6 +214,7 @@ void CMiniJV880::DeviceRemovedHandler(CDevice *pDevice, void *pContext) {
 // int cnt = 0;
 int nSamples = 0;
 
+
 void CMiniJV880::Run(unsigned nCore) {
   assert(1 <= nCore && nCore < CORES);
 
@@ -211,7 +225,6 @@ void CMiniJV880::Run(unsigned nCore) {
     //     m_pMIDIDevice->hostDevice->Update();
     //   }
     // }
-    return;
   } else if (nCore == 2) {
     // emulator
     while (true) {
@@ -221,7 +234,6 @@ void CMiniJV880::Run(unsigned nCore) {
         // unsigned int startT = CTimer::GetClockTicks();
 
         nSamples = (int)nFrames * 2;
-        // Try on single core only RPi4
         // mcu.updateSC55(nSamples);
 
         mcu.sample_write_ptr = 0;
@@ -234,13 +246,14 @@ void CMiniJV880::Run(unsigned nCore) {
           if (!mcu.mcu.sleep)
             mcu.MCU_ReadInstruction();
 
-          mcu.mcu.cycles += 12; // FIXME: assume 12 cycles per instruction
+          mcu.mcu.cycles += 10; // FIXME: assume 12 cycles per instruction
 
           mcu.TIMER_Clock(mcu.mcu.cycles);
           mcu.MCU_UpdateUART_RX();
           mcu.MCU_UpdateUART_TX();
           mcu.MCU_UpdateAnalog(mcu.mcu.cycles);
-          mcu.pcm.PCM_Update(mcu.mcu.cycles);
+
+          // mcu.pcm.PCM_Update(mcu.mcu.cycles);
         }
 
         // unsigned int endT = CTimer::GetClockTicks();
@@ -259,12 +272,168 @@ void CMiniJV880::Run(unsigned nCore) {
     // LOGNOTE("%d samples in %d time", nFrames, m_GetChunkTimer);
   } else if (nCore == 3) {
     // pcm chip
-    // while (true) {
-    //   // while (mcu.sample_write_ptr >= nSamples) {
-    //   // }
-    //   // Try on single core only RPi4
-    //   mcu.pcm.PCM_Update(mcu.mcu.cycles);
-    // }
-    return;
+    while (true) {
+      // while (mcu.sample_write_ptr >= nSamples) {
+      // }
+      mcu.pcm.PCM_Update(mcu.mcu.cycles);
+    }
   }
 }
+
+
+/*void CMiniJV880::Run(unsigned nCore)
+{
+    assert(1 <= nCore && nCore < CORES);
+
+    if (nCore == 1)
+    {
+        // ядро 1 — оставляем как в оригинале
+        return;
+    }
+    else if (nCore == 2)
+    {
+        // ядро 2 — эмуляция и генерация звука
+        while (true)
+        {
+            unsigned nFrames = m_nQueueSizeFrames - m_pSoundDevice->GetQueueFramesAvail();
+            if (nFrames >= m_nQueueSizeFrames / 2)
+            {
+                int nSamples = (int)nFrames * 2; // стерео
+                mcu.sample_write_ptr = 0;
+
+                // Генерируем звук в PCM буфер
+                while (mcu.sample_write_ptr < nSamples)
+                {
+                    if (!mcu.mcu.ex_ignore)
+                        mcu.MCU_Interrupt_Handle();
+                    else
+                        mcu.mcu.ex_ignore = 0;
+
+                    if (!mcu.mcu.sleep)
+                        mcu.MCU_ReadInstruction();
+
+                    mcu.mcu.cycles += 12;
+                    mcu.TIMER_Clock(mcu.mcu.cycles);
+                    mcu.MCU_UpdateUART_RX();
+                    mcu.MCU_UpdateUART_TX();
+                    mcu.MCU_UpdateAnalog(mcu.mcu.cycles);
+                    mcu.pcm.PCM_Update(mcu.mcu.cycles);
+                }
+
+                // Пишем в аудиоустройство пакетами
+                m_pSoundDevice->Write(mcu.sample_buffer, mcu.sample_write_ptr * sizeof(int16_t));
+            }
+        }
+    }
+}*/
+
+/*void CMiniJV880::Run(unsigned nCore)
+{
+    assert(1 <= nCore && nCore < CORES);
+
+    if (nCore == 2) {
+        // === ЯДРО 2: эмулятор MCU + управление выводом аудио ===
+        std::vector<int16_t> tmpBuf; // временный буфер для Write()
+
+        while (true) {
+            // сколько кадров нам нужно заполнить для звукового устройства
+            unsigned framesAvail = m_pSoundDevice->GetQueueFramesAvail();
+            unsigned needFrames  = (framesAvail < m_nQueueSizeFrames) ? (m_nQueueSizeFrames - framesAvail) : 0;
+
+            if (needFrames < m_nQueueSizeFrames / 2) {
+                // очередь почти полная — уступим CPU (yield)
+                asm volatile("yield" ::: "memory");
+                continue;
+            }
+
+            // будем генерировать столько сэмплов, сколько требуется
+            const int targetSamples = int(needFrames) * 2; // стерео -> samples (int16)
+            // начинаем собирать новый блок: обнуляем указатель, чтобы PCM писал с начала
+            mcu.sample_write_ptr = 0;
+
+            while (mcu.sample_write_ptr < targetSamples) {
+                // 1) эмулируем MCU до следующего квант-target
+                uint64_t targetCycles = mcu.mcu.cycles + CYCLES_PER_QUANTUM;
+
+                // выполняем инструкции MCU (никакого PCM_Update здесь)
+                while (mcu.mcu.cycles < targetCycles) {
+                    if (!mcu.mcu.ex_ignore)
+                        mcu.MCU_Interrupt_Handle();
+                    else
+                        mcu.mcu.ex_ignore = 0;
+
+                    if (!mcu.mcu.sleep)
+                        mcu.MCU_ReadInstruction();
+
+                    mcu.mcu.cycles += CYCLES_PER_INSTR;
+                    mcu.TIMER_Clock(mcu.mcu.cycles);
+                    mcu.MCU_UpdateUART_RX();
+                    mcu.MCU_UpdateUART_TX();
+                    mcu.MCU_UpdateAnalog(mcu.mcu.cycles);
+                }
+
+                // 2) опубликовать цель и запустить PCM: ПАРА BARRIER WAIT'ов
+                s_CycleTarget.store(targetCycles, std::memory_order_release);
+
+                // Первый Wait: совпадёт с PCM'ом, который тоже вызывает Wait перед своей работой.
+                s_Barrier.Wait();
+
+                // Второй Wait: CPU блокируется здесь, пока PCM не закончится и не вызовет второй Wait.
+                s_Barrier.Wait();
+
+                // после второго Wait PCM гарантированно окончил писать сэмплы в mcu.sample_buffer
+                // и обновил mcu.sample_write_ptr — можно проверять/копировать
+            }
+
+            // Отправляем в аудиоустройство все готовые сэмплы
+            int producedSamples = mcu.sample_write_ptr; // int16 samples (L,R interleaved)
+            if (producedSamples > 0) {
+                // безопасность: не писать больше, чем хотели
+                int toSendSamples = std::min(producedSamples, targetSamples);
+                int lenBytes = toSendSamples * sizeof(int16_t);
+
+                // Временный буфер, чтобы Write() мог читать непрерывную память (если нужно)
+                tmpBuf.resize(toSendSamples);
+                std::memcpy(tmpBuf.data(), mcu.sample_buffer, lenBytes);
+
+                if (m_pSoundDevice->Write(tmpBuf.data(), lenBytes) != lenBytes) {
+                    LOGERR("Sound data dropped");
+                }
+
+                // если PCM написал больше, чем мы отправили, сдвигаем хвост в начало
+                int tail = producedSamples - toSendSamples;
+                if (tail > 0) {
+                    std::memmove(mcu.sample_buffer,
+                                 mcu.sample_buffer + toSendSamples,
+                                 tail * sizeof(int16_t));
+                }
+                mcu.sample_write_ptr = tail;
+            }
+        }
+    }
+    else if (nCore == 3) {
+        // === ЯДРО 3: PCM (только тут вызываем PCM_Update) ===
+        while (true) {
+            // Первый Wait: CPU опубликовал s_CycleTarget и ждёт — мы sync'имся сюда.
+            s_Barrier.Wait();
+
+            // Читаем цель (до какого цикла считать PCM)
+            uint64_t target = s_CycleTarget.load(std::memory_order_acquire);
+
+            // МОНОПОЛИЯ ядра 3 на PCM_Update: считаем звук до target
+            // (PCM_Update должен писать в mcu.sample_buffer и изменять mcu.sample_write_ptr)
+            mcu.pcm.PCM_Update(target);
+
+            // Второй Wait: сигнализируем CPU, что подсчёт завершён
+            s_Barrier.Wait();
+        }
+    }
+    else {
+        // ядро 1 — MIDI/прочее: просто yield в цикле (не участвует в барьере)
+        while (true) {
+           // if (m_pMIDIDevice && m_pMIDIDevice->hostDevice)
+           //     m_pMIDIDevice->hostDevice->Update();
+            asm volatile("yield" ::: "memory");
+        }
+    }
+}*/
