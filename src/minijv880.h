@@ -40,7 +40,7 @@
 #include <circle/usb/usbmidi.h>
 #include <fatfs/ff.h>
 #include <stdint.h>
-#include <atomic>
+
 
 
 
@@ -83,8 +83,7 @@ private:
 
   static CMiniJV880 *s_pThis;
 
-    static Barrier             s_Barrier;       // барьер на 2 участника
-    static std::atomic<uint64_t> s_CycleTarget; // цель по MCU-циклам для PCM
+    
 };
 
 #endif

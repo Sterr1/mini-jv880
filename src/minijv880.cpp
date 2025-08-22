@@ -33,10 +33,6 @@
 #include <algorithm>
 
 
-// определения статиков (в minijv880.cpp)
-Barrier CMiniJV880::s_Barrier(2);
-std::atomic<uint64_t> CMiniJV880::s_CycleTarget { 0 };
-
 // конфиг: сколько циклов MCU считаем за один квант (подбирай)
 static constexpr uint64_t CYCLES_PER_INSTR = 12ull;   // твоё допущение
 static constexpr unsigned   INSTRS_PER_QUANTUM = 256u;
