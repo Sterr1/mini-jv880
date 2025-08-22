@@ -27,7 +27,6 @@
 #include "config.h"
 #include "userinterface.h"
 #include "emulator/mcu.h"
-#include "sync.h"
 #include <circle/gpiomanager.h>
 #include <circle/i2cmaster.h>
 #include <circle/interrupt.h>

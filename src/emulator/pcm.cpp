@@ -419,6 +419,7 @@ inline void eram_pack(pcm_t *pcm, int addr, int val)
     pcm->eram[addr] = data;
 }
 
+/*
 void Pcm::PCM_Update(uint64_t cycles)
 {
     // int reg_slots = (pcm.config_reg_3d & 31) + 1;
@@ -1430,8 +1431,8 @@ void Pcm::PCM_Update(uint64_t cycles)
         pcm.cycles += (cycles * 25) / 29;
     }
 }
+*/
 
-/*
 void Pcm::PCM_Update(uint64_t cycles_target)
 {
     // ---- быстрые константы/алиасы
@@ -1456,6 +1457,8 @@ void Pcm::PCM_Update(uint64_t cycles_target)
         // -------- основной «внутренний» цикл по семплам (блочно)
         for (int sample_i = 0; sample_i < samples_this_block; ++sample_i)
         {
+
+            pcm_lock.Acquire();
             // ---- финальный микс/шум LFSR: компактнее, без лишних временных
             {
                 int shifter = pcm.ram2[30][10];
@@ -2121,6 +2124,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 pcm.ram2[31][7] |= 0x20;
             }
 
+            pcm_lock.Release();
             pcm.nfs = 1;
 
         } // for sample_i
@@ -2129,4 +2133,4 @@ void Pcm::PCM_Update(uint64_t cycles_target)
         pcm.cycles += (uint64_t)samples_this_block * (uint64_t)CYCLES_PER_SAMPLE;
     }
 }
-*/
+
