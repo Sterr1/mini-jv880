@@ -47,15 +47,17 @@ CMiniJV880::CMiniJV880(CConfig *pConfig, CInterruptSystem *pInterrupt,
                        FATFS *pFileSystem, CScreenDevice *mScreenUnbuffered)
     : CMultiCoreSupport(CMemorySystem::Get()), m_pConfig(pConfig),
       m_pFileSystem(pFileSystem), 
+      m_Serial(pInterrupt, TRUE),
       m_pSoundDevice(0),
       screenUnbuffered(mScreenUnbuffered),
       m_bChannelsSwapped(pConfig->GetChannelsSwapped()),
       m_UI(this, pGPIOManager, pI2CMaster, pSPIMaster, pConfig),
       m_lastTick(0),
       m_lastTick1(0) {
-  assert(m_pConfig);
+  
+      assert(m_pConfig);
 
-  s_pThis = this;
+      s_pThis = this;
 
   // select the sound device
   const char *pDeviceName = pConfig->GetSoundDevice();
@@ -96,6 +98,19 @@ bool CMiniJV880::Initialize(void) {
 		return false;
 	}
 
+
+	assert (m_pConfig);
+	if (!m_Serial.Initialize(m_pConfig->GetMIDIBaudRate ())) 
+    {
+        LOGERR("Failed to initialize Serial MIDI");
+        return false;
+    }
+	unsigned ser_options = m_Serial.GetOptions();
+	// Ensure CR->CRLF translation is disabled for MIDI links
+	ser_options &= ~(SERIAL_OPTION_ONLCR);
+	m_Serial.SetOptions(ser_options);
+  LOGNOTE("Serial MIDI Initialized");
+  
   LOGNOTE("Loading emu files");
   uint8_t *rom1 = (uint8_t *)malloc(ROM1_SIZE);
   uint8_t *rom2 = (uint8_t *)malloc(ROM2_SIZE);
@@ -193,7 +208,37 @@ void CMiniJV880::USBMIDIMessageHandler(unsigned nCable, u8 *pPacket,
                                        unsigned nLength) {
   // LOGERR("CMiniJV880::USBMIDIMessageHandler");
   CMiniJV880 *pThis = static_cast<CMiniJV880 *>(s_pThis);
-  pThis->mcu.postMidiSC55(pPacket, nLength);
+  if (!pPacket || nLength == 0) return;
+  ParseMIDIData(pThis, pPacket, nLength);
+  //pThis->mcu.postMidiSC55(pPacket, nLength);
+}
+
+void CMiniJV880::ParseMIDIData(CMiniJV880* pThis, const u8* pData, unsigned nLength)
+{
+
+    for (unsigned i = 0; i < nLength; i++)
+    {
+
+        if ((pData[i] & 0xF0) == 0xB0 && i + 2 < nLength) 
+        {
+            u8 ccNumber = pData[i + 1];
+            u8 ccValue = pData[i + 2];
+            
+            switch (ccNumber)
+            {
+                case 0:   // Volume
+                    LOGDBG("Bank Select: %d", ccValue);
+                    break;
+                    
+                case 10:  // Pan
+                    LOGDBG("Pan CC: %d", ccValue);
+                    break;
+                    
+            }
+        }
+    }
+    
+    pThis->mcu.postMidiSC55(pData, nLength);
 }
 
 void CMiniJV880::DeviceRemovedHandler(CDevice *pDevice, void *pContext) {
@@ -208,20 +253,23 @@ void CMiniJV880::DeviceRemovedHandler(CDevice *pDevice, void *pContext) {
 
 // double avg = 0;
 // int cnt = 0;
-int nSamples = 0;
 
 
 void CMiniJV880::Run(unsigned nCore) {
   assert(1 <= nCore && nCore < CORES);
+  int nSamples = 0;
+  u8 buffer[64];
 
-  if (nCore == 1) {
-    // while (true) {
-    //   if (m_pMIDIDevice != 0) {
-    //     assert(m_pMIDIDevice->hostDevice != 0);
-    //     m_pMIDIDevice->hostDevice->Update();
-    //   }
-    // }
-  } else if (nCore == 2) {
+  if (nCore == 1) { // ------------------- 1st core ----- serial MIDI
+    while (true) {
+      int nRead = m_Serial.Read(buffer, sizeof(buffer));
+      if (nRead > 0)
+      {
+          ParseMIDIData(this, buffer, nRead);
+      }
+      CTimer::SimpleMsDelay(1);
+    }
+  } else if (nCore == 2) { // ------------ 2nd core -----  MCU code
     // emulator
     while (true) {
       unsigned nFrames =
@@ -266,7 +314,7 @@ void CMiniJV880::Run(unsigned nCore) {
       }
     }
     // LOGNOTE("%d samples in %d time", nFrames, m_GetChunkTimer);
-  } else if (nCore == 3) {
+  } else if (nCore == 3) { // ----------------------  3rd core ----- PCM Update
     // pcm chip
     while (true) {
       // while (mcu.sample_write_ptr >= nSamples) {

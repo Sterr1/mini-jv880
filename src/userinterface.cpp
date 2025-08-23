@@ -225,13 +225,7 @@ bool CUserInterface::Initialize (void)
 
 void CUserInterface::Process (void)
 {
-	uint32_t* lcd_buffer = m_pMiniJV880->mcu.lcd.LCD_Update();
-
-	// for (size_t y = 0; y < lcd_height; y++) {
-	// 	for (size_t x = 0; x < lcd_width; x++) {
-	// 		m_pMiniJV880->screenUnbuffered->SetPixel(x + 700, y + 50, lcd_buffer[y * lcd_width + x]);
-	// 	}
-	// }
+	m_pMiniJV880->mcu.lcd.LCD_Update();
 
 	if (m_pLCDBuffered)
 	{

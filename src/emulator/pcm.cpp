@@ -1435,31 +1435,31 @@ void Pcm::PCM_Update(uint64_t cycles)
 
 void Pcm::PCM_Update(uint64_t cycles_target)
 {
-    // ---- быстрые константы/алиасы
-    constexpr int REG_SLOTS         = 28;                 // было вычисляемым, но у тебя закреплено 28
+    
+    constexpr int REG_SLOTS         = 28;                 // const 28
     constexpr int WRITE_MASK        = 3;
     constexpr int CYCLE_A           = (REG_SLOTS + 1) * 25;
-    constexpr int CYCLES_PER_SAMPLE = (CYCLE_A * 25) / 29; // как в оригинале, только вынесено
-    constexpr int BLOCK_SIZE        = 32;                 // блоковая обработка (можно 64/128 по месту)
+    constexpr int CYCLES_PER_SAMPLE = (CYCLE_A * 25) / 29; // outside
+    constexpr int BLOCK_SIZE        = 32;                 // block run (about 64/128 in place)
 
-    // Схлопываем маску активных голосов заранее
+    // 
     const int voice_active_all = (pcm.voice_mask & pcm.voice_mask_pending);
 
-    // Будем обрабатывать пачками семплов, чтобы реже входить в внешний while
+    // 
     while (pcm.cycles < cycles_target)
     {
-        // Сколько семплов реально можно посчитать в этом вызове
+        // 
         const uint64_t cycles_left   = cycles_target - pcm.cycles;
         int samples_this_block       = (int)(cycles_left / CYCLES_PER_SAMPLE);
         if (samples_this_block <= 0) samples_this_block = 1;
         if (samples_this_block > BLOCK_SIZE) samples_this_block = BLOCK_SIZE;
 
-        // -------- основной «внутренний» цикл по семплам (блочно)
+        // -------- main sample cycle
         for (int sample_i = 0; sample_i < samples_this_block; ++sample_i)
         {
 
             pcm_lock.Acquire();
-            // ---- финальный микс/шум LFSR: компактнее, без лишних временных
+            // ---- final mix/noise LFSR: 
             {
                 int shifter = pcm.ram2[30][10];
                 // шаг LFSR
@@ -1467,19 +1467,17 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 shifter = (shifter >> 1) | (xr << 15);
                 pcm.ram2[30][10] = shifter;
 
-                // микс левого/правого аккума (без опций oversampling: у тебя это всегда false)
+                // 
                 pcm.accum_l = addclip20(pcm.accum_l, pcm.ram1[30][0], 0);
                 pcm.accum_r = addclip20(pcm.accum_r, pcm.ram1[30][1], 0);
 
-                // noise_mask/orval всегда 0 в твоём коде — оставляю, чтобы не ломать логику
-                // (если позже включишь, просто поставишь значения в начале блока)
                 const int noise_mask = 0;
                 const int orval      = 0;
 
                 pcm.ram1[30][2] = addclip20(pcm.accum_l, (orval | (shifter & noise_mask)), 0);
                 pcm.ram1[30][4] = addclip20(pcm.accum_r, (orval | (shifter & noise_mask)), 0);
 
-                // write-back с маской
+                // write-back mask
                 pcm.ram1[30][0] = (pcm.accum_l & WRITE_MASK);
                 pcm.ram1[30][1] = (pcm.accum_r & WRITE_MASK);
 
@@ -1488,7 +1486,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 int tt[2] = { outL, outR };
                 mcu->MCU_PostSample(tt);
 
-                // второй полушаг LFSR
+                // second half-step LFSR
                 xr      = ((shifter >> 0) ^ (shifter >> 1) ^ (shifter >> 7) ^ (shifter >> 12)) & 1;
                 shifter = (shifter >> 1) | (xr << 15);
 
@@ -1499,7 +1497,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 pcm.ram1[30][5] = addclip20(pcm.accum_r, (orval | (shifter & noise_mask)), 0);
             }
 
-            // ---- глобальный счётчик огибающих/TV
+            // ---- global count ADSR/TV
             {
                 if (!pcm.nfs)
                     pcm.tv_counter = pcm.ram2[31][8]; // fixme сохранил как есть
@@ -1508,7 +1506,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 pcm.tv_counter = (pcm.tv_counter - 1) & 0x3fff;
             }
 
-            // ---- «хор/реверб» подготовка (оставил семантику неизменной, схлопнул if/else)
+            // ---- chorus/reverb 
             {
                 const int r318 = pcm.ram2[31][8];
                 const int a    = (r318 & 0x7fff);
@@ -1518,7 +1516,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 if ((0x4000 - r318) & 0x8000) pcm.ram2[31][10] = b; else pcm.ram2[31][9]  = b;
             }
 
-            // два мелких блока свёл к минимуму временных
+            // 
             {
                 const int v1 = pcm.ram2[31][1];
                 const int m1 = (multi(pcm.ram1[29][1], v1 >> 8) >> 5);
@@ -1538,12 +1536,11 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 pcm.ram1[29][0] = addclip20(m1 >> 1, m2 >> 1, (m1 | m2) & 1);
             }
 
-            // ---- временные накопители для RC (сводим на стек единоразово)
+            // ---- 
             int rcadd [6] = {0,0,0,0,0,0};
             int rcadd2[6] = {0,0,0,0,0,0};
 
-            // ---- большой «FX» блок: оставлен по шагам 1..23..31,
-            //     но убраны лишние временные и повторные чтения.
+            // ---- «FX» block: 
             {
                 // 1
                 {
@@ -1766,7 +1763,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                     rcadd [5] = (multi(v2, v1 >> 8) >> 5);
                     rcadd2[5] = (multi(v2, v1 & 255) >> 5);
 
-                    // address generator (общий, как в исходнике, key=1)
+                    // address generator 
                     const int key  = 1;
                     const int okey = (pcm.ram2[31][7] & 0x20) != 0;
                     const int active = (key && okey);
@@ -1825,13 +1822,13 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 }
             }
 
-            // ---- подготовка сумматоров перед проходом по слотам
+            // ---- 
             pcm.ram1[31][1] = 0;
             pcm.ram1[31][3] = 0;
             pcm.rcsum[0] = 0;
             pcm.rcsum[1] = 0;
 
-            // ---- основной цикл по слотам
+            // ---- 
             for (int slot = 0; slot < REG_SLOTS; ++slot)
             {
                 uint32_t* __restrict ram1 = pcm.ram1[slot];
@@ -1842,7 +1839,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 const int active = (okey & key);
                 const int kon    = (key & !okey);
 
-                // address generator (перенёс локальные константы выше, минимизировал повтор)
+                // address generator 
                 bool b15     = (ram2[8] & 0x8000) != 0;
                 const bool b6      = (ram2[7] & 0x40) != 0;
                 const bool b7      = (ram2[7] & 0x80) != 0;
@@ -1856,7 +1853,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 const int cmp1          = b15 ? address_loop : address_end;
                 const bool nibble_cmp1  = ((cmp1 & 0xffff0) == (address & 0xffff0));
 
-                // irq_flag (сохранил исходную формулу)
+                // irq_flag 
                 int irq_flag;
                 if (kon)
                     irq_flag = (((cmp1 + address_loop) & 0x100000) != 0);
@@ -1940,7 +1937,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 address_cmp = (((b15 ? address_loop : address_end) & 0xfffff) == (address_cnt & 0xfffff));
                 if (sub_phase_of >= 3) { next_address = address_cnt; usenew = !nibble_cmp5; next_b15 = b15; }
 
-                // ещё один шаг адреса
+                // 
                 address_cnt2 = (kon || (!b6 && address_cmp)) ? ((!b6 && address_cmp) ? address_loop : address_cnt) : address_cnt;
                 address_add  = ((!address_cmp && b6 && !b15) || (!address_cmp && !b6)) ? 1 : 0;
                 address_sub  = (!address_cmp && b6 && b15) ? 1 : 0;
@@ -1980,7 +1977,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                 shifted = (preshift << 1) >> shift;
                 if (sub_phase_of >= 4) reference = addclip20(reference, (shifted >> 1), (shifted & 1));
 
-                // ---- Интерполяция + IIR (оставил «hack 32-bit math», как у тебя в ветке else)
+                // ---- Interpolate + IIR («hack 32-bit math»)
                 int test = ram1[5];
 
                 int step0 = (multi(interp_lut[0][interp_ratio] << 6, samp0) >> 8);
@@ -2032,7 +2029,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
 
                     ram1[1] = Clamp(v5, -0x80000, 0x7ffff);
 
-                    // сохранить reference
+                    // save reference
                     ram1[5] = reference;
 
                     // IRQ
@@ -2044,16 +2041,16 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                         mcu->MCU_GA_SetGAInt(5, 1);
                     }
 
-                    // огибающие L/R/aux
+                    // ADSR L/R/aux
                     int volmul1 = 0, volmul2 = 0;
                     calc_tv(&pcm, 0, ram2[3],  &ram2[9],  active, &volmul1);
                     calc_tv(&pcm, 1, ram2[4],  &ram2[10], active, &volmul2);
                     calc_tv(&pcm, 2, ram2[5],  &ram2[11], active, nullptr);
 
-                    // выбор источника
+                    // select input
                     const int sample = ((ram2[6] & 2) == 0) ? ram1[3] : v3;
 
-                    // громкости (склеил пары мультипликаций)
+                    // volume 
                     const int multiv1 = multi(sample,    (volmul1 >> 8));
                     const int multiv2 = multi(sample,    ((volmul1 >> 1) & 127));
                     const int sample2 = addclip20(multiv1 >> 6, multiv2 >> 13, ((multiv2 >> 12) | (multiv1 >> 5)) & 1);
@@ -2085,7 +2082,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
                         ram2[8] = 0; ram2[9] = 0; ram2[10] = 0;
                     }
 
-                    // ---- сведение RC и основного сигнала
+                    // ---- mix RC and main signal
                     const int next_slot = (slot == REG_SLOTS - 1) ? 31 : (slot + 1);
                     switch (next_slot)
                     {
@@ -2129,7 +2126,7 @@ void Pcm::PCM_Update(uint64_t cycles_target)
 
         } // for sample_i
 
-        // увеличить счётчик циклов сразу на целый блок
+        // increment cycles per block
         pcm.cycles += (uint64_t)samples_this_block * (uint64_t)CYCLES_PER_SAMPLE;
     }
 }

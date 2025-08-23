@@ -40,7 +40,7 @@
 #include <circle/usb/usbmidi.h>
 #include <fatfs/ff.h>
 #include <stdint.h>
-
+#include <circle/serial.h>
 
 
 
@@ -58,6 +58,7 @@ public:
   static void USBMIDIMessageHandler(unsigned nCable, u8 *pPacket,
                                     unsigned nLength);
   static void DeviceRemovedHandler(CDevice *pDevice, void *pContext);
+  static void ParseMIDIData(CMiniJV880* pThis, const u8* pData, unsigned nLength);
 
   MCU mcu;
 
@@ -68,7 +69,8 @@ private:
   FATFS *m_pFileSystem;
 
   CUSBMIDIDevice *volatile m_pMIDIDevice = 0;
-  // CUSBKompleteKontrolDevice *volatile m_KompleteKontrol = 0;
+  CSerialDevice m_Serial;
+  
   int lastEncoderPos = 0;
 
   CSoundBaseDevice *m_pSoundDevice;
@@ -82,6 +84,9 @@ private:
   unsigned m_lastTick1;
 
   static CMiniJV880 *s_pThis;
+  
+  
+
 
     
 };
